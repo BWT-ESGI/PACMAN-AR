@@ -4,91 +4,105 @@ import argparse
 import time
 import sys
 from game_env import PacmanEnv
-from rl_agent import QLearningAgent
+from agent import QLearningAgent
 from graphics import GameRenderer, TrainingChart
 from config import *
 
-# Initialisation des logs
-with open(LOG_FILE, 'w', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(["Episode", "Score", "Steps", "Epsilon", "GhostsEaten"])
-
-def log_episode(episode, score, steps, epsilon, ghosts):
-    with open(LOG_FILE, 'a', newline='') as f:
+if not os.path.exists(LOG_FILE) or os.path.getsize(LOG_FILE) == 0:
+    with open(LOG_FILE, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([episode, score, steps, epsilon, ghosts])
+        writer.writerow(["Episode", "Score", "Steps", "Epsilon", "GhostsEaten"])
 
 def train(episodes, visual=False, graphics=False, load=False):
     env = PacmanEnv()
     agent = QLearningAgent()
+
+    loaded_history = None
+    start_episode = 0
     
     if load:
-        agent.load_model()
+        loaded_history = agent.load_model()
+        if loaded_history:
+            start_episode = loaded_history['episodes'][-1] + 1
+            print(f"Reprise de l'entraînement à l'épisode {start_episode}")
+
 
     renderer = GameRenderer(env) if visual else None
-    chart = TrainingChart() if graphics else None
+    chart = TrainingChart(visual=graphics) 
 
+    if loaded_history:
+        chart.episodes = loaded_history.get('episodes', [])
+        chart.scores = loaded_history.get('scores', [])
+        chart.avg_scores = loaded_history.get('avg_scores', [])
+        chart.epsilons = loaded_history.get('epsilons', [])
+        
+        chart.ghosts_eaten = loaded_history.get('ghosts_eaten', []) 
+        chart.avg_ghosts = loaded_history.get('avg_ghosts', [])
+        
+        chart.max_levels = loaded_history.get('max_levels', []) 
+        chart.avg_levels = loaded_history.get('avg_levels', [])
+     
     print(f"Démarrage de l'entraînement ({ALGORITHM}) pour {episodes} épisodes...")
     
-    try:
-        for ep in range(1, episodes + 1):
-            # Reset Episode (Niveau 1, Score 0)
-            state = env.reset()
-            
-            # Pour SARSA, on doit choisir la première action avant la boucle
-            action = agent.choose_action(state)
-            
-            done = False
-            total_reward = 0
-            
-            # Boucle Épisode (Peut traverser plusieurs niveaux)
-            while not done:
-                if visual and renderer:
-                    renderer.render(info_dict={'episode': ep, 'epsilon': agent.epsilon})
+    with open(LOG_FILE, 'a', newline='') as log_file:
+        log_writer = csv.writer(log_file)
+        
+        try:
+            for ep in range(start_episode, start_episode + episodes):
+                state = env.reset()
                 
-                # 1. Exécuter l'action
-                next_state, reward, episode_done, info = env.step(action)
+                action = agent.choose_action(state)
                 
-                # GESTION NIVEAUX
-                if info.get("level_cleared", False):
-                    # On ne finit pas l'épisode, on passe au niveau suivant
-                    # L'agent reçoit sa récompense de victoire mais continue de jouer
-                    # On doit réinitialiser l'état car la grille change
-                    next_state = env.next_level()
-                    # On ne change pas episode_done ici, car on veut continuer
-                    episode_done = False 
+                done = False
+                total_reward = 0
                 
-                # 2. Choisir l'action suivante (nécessaire pour SARSA)
-                next_action = agent.choose_action(next_state) if not episode_done else None
+                while not done:
+                    if visual and renderer:
+                        renderer.render(info_dict={'episode': ep, 'epsilon': agent.epsilon})
+                    
+                    next_state, reward, episode_done, info = env.step(action)
+                    
+                    if info.get("level_cleared", False):
+                        next_state = env.next_level()
+                        episode_done = False 
+                    
+                    next_action = agent.choose_action(next_state) if not episode_done else None
+                    
+                    agent.update(state, action, reward, next_state, next_action)
+                    
+                    state = next_state
+                    action = next_action
+                    total_reward += reward
+                    done = episode_done
+                    
+                agent.decay_epsilon(ep)
                 
-                # 3. Mise à jour (Q-Learning ignorera next_action, SARSA l'utilisera)
-                agent.update(state, action, reward, next_state, next_action)
+                ghosts_count = info.get('ghosts', 0)
+                log_writer.writerow([ep, env.score, env.steps, agent.epsilon, ghosts_count])
                 
-                state = next_state
-                action = next_action
-                total_reward += reward
-                done = episode_done
+                if chart:
+                    chart.update(ep, env.score, agent.epsilon, ghosts_count, env.level)
                 
-            agent.decay_epsilon(ep)
-            
-            # Logging
-            ghosts_count = info.get('ghosts', 0)
-            log_episode(ep, env.score, env.steps, agent.epsilon, ghosts_count)
-            
-            if chart:
-                # On passe le niveau max atteint dans cet épisode
-                chart.update(ep, env.score, agent.epsilon, ghosts_count, env.level)
-            
-            if ep % 100 == 0 or ep == 1:
-                print(f"Ep {ep}/{episodes} | Score: {env.score} | Lvl: {env.level} | Eps: {agent.epsilon:.3f}")
-                
-            if ep % 500 == 0:
-                agent.save_model()
-                
-    except KeyboardInterrupt:
-        print("\nArrêt manuel détecté. Sauvegarde...")
+                if ep % 100 == 0 or ep == 1:
+                    print(f"Ep {ep}/{start_episode + episodes} | Score: {env.score} | Lvl: {env.level} | Eps: {agent.epsilon:.3f} | Alpha: {agent.alpha:.3f} | Taille Q-Table: {len(agent.q_table)}")
+                if ep % 500 == 0:
+                    pass 
+                    
+        except KeyboardInterrupt:
+            print("\nArrêt manuel détecté. Sauvegarde...")
+
+    history_data = {
+        'episodes': chart.episodes,
+        'scores': chart.scores,
+        'avg_scores': chart.avg_scores,
+        'epsilons': chart.epsilons,
+        'ghosts_eaten': chart.ghosts_eaten,
+        'avg_ghosts': chart.avg_ghosts,
+        'avg_levels': chart.avg_levels,
+        'max_levels': chart.max_levels
+    }
     
-    agent.save_model()
+    agent.save_model(history=history_data)
     if renderer: renderer.close()
     if chart: 
         chart.save_plot()
