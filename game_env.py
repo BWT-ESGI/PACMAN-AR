@@ -149,7 +149,7 @@ class PacmanEnv:
                 is_wall = 1
             
             ghost_status = 0 
-            for i in range(1, 5): 
+            for i in range(1, 8): # regarder jusqu'a 7 cellules devant
                 r, c = head_r + (delta_row*i), head_c + (delta_col*i)
                 for g in self.ghosts:
                     if g['pos'] == (r, c):

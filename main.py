@@ -75,7 +75,7 @@ def train(episodes, visual=False, graphics=False, load=False):
                     total_reward += reward
                     done = episode_done
                     
-                agent.decay_epsilon(ep)
+                agent.decay_epsilon()
                 
                 ghosts_count = info.get('ghosts', 0)
                 log_writer.writerow([ep, env.score, env.steps, agent.epsilon, ghosts_count])

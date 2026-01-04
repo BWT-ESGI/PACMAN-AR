@@ -29,26 +29,26 @@ MIN_POWER_DURATION = 10
 ALGORITHM = "QLEARNING" # "QLEARNING" / "SARSA"
 ALPHA_START = 0.2
 ALPHA_MIN = 0.05
-ALPHA_DECAY_RATE = 0.99995             
-GAMMA = 0.95            
+ALPHA_DECAY_RATE = 0.999995
+GAMMA = 0.95
 EPSILON_START = 1.0
-EPSILON_DECAY_RATE = 0.9998
+EPSILON_DECAY_RATE = 0.99998
 TOTAL_EPISODES = 5000   
 INITIAL_LIVES = 3
 
 # --- Récompenses  ---
-R_STEP = -1             
-R_WALL = -50            
-R_DOT = 10              
-R_POWER = 50            
-R_GHOST_EAT = 900       
-R_DEATH = -500          
-R_WIN = 1000            # Finir un niveau
-R_GAME_WIN = 5000       # Finir le jeu (Tous les niveaux)
+R_STEP = -1
+R_WALL = -50
+R_DOT = 10
+R_POWER = 50
+R_GHOST_EAT = 900
+R_DEATH = -500
+R_WIN = 1000
+R_GAME_WIN = 5000
 
 # --- Couleurs & Style ---
 BLACK = (0, 0, 0)
-NAVY = (0, 0, 50)       
+NAVY = (0, 0, 50)
 WHITE = (255, 255, 255)
 WALL_COLOR = (33, 33, 255) 
 PACMAN_COLOR = (255, 255, 0)
@@ -60,10 +60,10 @@ ORANGE = (255, 165, 0)
 
 # Couleurs Fantômes
 GHOST_COLORS = [
-    (255, 0, 0),    # Blinky
-    (255, 182, 193),# Pinky
-    (0, 255, 255),  # Inky
-    (255, 165, 0)   # Clyde
+    (255, 0, 0),
+    (255, 182, 193),
+    (0, 255, 255),
+    (255, 165, 0)
 ]
 SCARED_COLOR = (0, 0, 255) 
 
